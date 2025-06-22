@@ -300,6 +300,37 @@ class SSVICalc:
         print(calibration_error)
         return calc_params, calibration_error
 
+    # ================ Derivatives of implied vol by raw params eta, lambda_, alpha, beta, gamma ================
+    def _dsigma_df(
+        self,
+        F: nb.float64,
+        grid: StrikesMaturitiesGrid,
+        params: SSVIParams,
+        thetas: nb.float64[:],
+    ) -> nb.float64:
+        eta, lambda_, alpha, beta, gamma_ = (
+            params.eta,
+            params.lambda_,
+            params.alpha,
+            params.beta,
+            params.gamma_,
+        )
+        w = self._grid_implied_variances(params, grid, thetas)[0]
+        Ts = grid.Ts
+        Ks = grid.Ks
+        denominator = 2 * np.sqrt(Ts * w)
+        k = np.log(Ks / F)
+        zeta_t = eta * thetas ** (-lambda_)
+        rho_t = alpha * np.exp(-beta * thetas) + gamma_
+        sqrt = np.sqrt(-(rho_t**2) + 1 + (k * zeta_t**2 + rho_t) ** 2)
+        ddf = (
+            thetas
+            / 2
+            * (-rho_t * zeta_t / F - zeta_t * (k * zeta_t + rho_t) / (F * sqrt))
+        )
+
+        return ddf / denominator
+
     def _jacobian_total_implied_var_ssvi(
         self,
         ssvi_params: SSVIParams,
