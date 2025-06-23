@@ -147,16 +147,23 @@ class SSVICalc:
         self,
         vol_surface_delta_space: VolSurfaceDeltaSpace,
         number_of_delta_space_dots: int = 20,
+        cache_params: bool = False,
     ) -> Tuple[SSVIParams, CalibrationError]:
         NUMBER_OF_DOTS_PER_SMILE = 4
+        NUMBER_OF_DOTS_PER_SMILE_ALL = NUMBER_OF_DOTS_PER_SMILE + 1
         thetas = np.zeros(number_of_delta_space_dots)
         n_points = NUMBER_OF_DOTS_PER_SMILE * number_of_delta_space_dots
+        # save ATM here too
+        n_points_all = NUMBER_OF_DOTS_PER_SMILE_ALL * number_of_delta_space_dots
         # write final IVs here to ehich we gonna calibrate
         implied_variances = np.zeros(n_points)
+        implied_variances_all = np.zeros(n_points_all)
         weights = np.ones(n_points)
         weights = weights / weights.sum()
         # array for creating StrikesMaturitiesGrid
         strikes = np.zeros(n_points)
+        strikes_all = np.zeros(n_points_all)
+        Ts_all = np.zeros(n_points_all)
 
         # we calibrate SVI to the linspace of max and min tenors given in space with given amount of ttm dots
         tenors_linspace = np.linspace(
@@ -192,6 +199,11 @@ class SSVICalc:
                     chain_space_from_delta_space.Ks[-2:],
                 )
             )
+            strikes_all[
+                NUMBER_OF_DOTS_PER_SMILE_ALL
+                * idx : NUMBER_OF_DOTS_PER_SMILE_ALL
+                * (idx + 1)
+            ] = chain_space_from_delta_space.Ks
             # NOTE: convert iv-s to implied variances
             implied_variances[
                 NUMBER_OF_DOTS_PER_SMILE * idx : NUMBER_OF_DOTS_PER_SMILE * (idx + 1)
@@ -205,11 +217,22 @@ class SSVICalc:
                 )
                 ** 2
             )
+            implied_variances_all[
+                NUMBER_OF_DOTS_PER_SMILE_ALL
+                * idx : NUMBER_OF_DOTS_PER_SMILE_ALL
+                * (idx + 1)
+            ] = (tenor * (chain_space_from_delta_space.sigmas) ** 2)
             # ATM as theta
             thetas[idx] = tenor * chain_space_from_delta_space.sigmas[2] ** 2
+            Ts_all[
+                NUMBER_OF_DOTS_PER_SMILE_ALL
+                * idx : NUMBER_OF_DOTS_PER_SMILE_ALL
+                * (idx + 1)
+            ] = tenor
             # TODO: here the arbitrage can be tracked and fixed
-        print("Implied variances to calibrate to:", implied_variances)
-        print("Strikes from delta-space we calibrate to:", strikes)
+        print("Implied variances to calibrate to:", implied_variances_all)
+        print("Strikes from delta-space we calibrate to:", strikes_all)
+        print("Tenors from delta-space we calibrate to:", Ts_all)
 
         # get all the strikes and maturities grid
         strikes_to_maturities_grid: StrikesMaturitiesGrid = StrikesMaturitiesGrid(
@@ -298,7 +321,16 @@ class SSVICalc:
         )
         print(calc_params)
         print(calibration_error)
-        return calc_params, calibration_error
+        if cache_params:
+            self.cached_params = calc_params
+
+        return (
+            calc_params,
+            calibration_error,
+            strikes_all,
+            Ts_all,
+            implied_variances_all,
+        )
 
     # ================ Derivatives of implied vol by raw params eta, lambda_, alpha, beta, gamma ================
     def _dsigma_df(
