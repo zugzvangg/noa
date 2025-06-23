@@ -164,6 +164,7 @@ class SSVICalc:
         strikes = np.zeros(n_points)
         strikes_all = np.zeros(n_points_all)
         Ts_all = np.zeros(n_points_all)
+        thetas_all = np.zeros(n_points_all)
 
         # we calibrate SVI to the linspace of max and min tenors given in space with given amount of ttm dots
         tenors_linspace = np.linspace(
@@ -224,6 +225,7 @@ class SSVICalc:
             ] = (tenor * (chain_space_from_delta_space.sigmas) ** 2)
             # ATM as theta
             thetas[idx] = tenor * chain_space_from_delta_space.sigmas[2] ** 2
+
             Ts_all[
                 NUMBER_OF_DOTS_PER_SMILE_ALL
                 * idx : NUMBER_OF_DOTS_PER_SMILE_ALL
@@ -241,8 +243,10 @@ class SSVICalc:
             Strikes(strikes),
         )
         # make the array of thetas of the same size
-        thetas = np.repeat(thetas, NUMBER_OF_DOTS_PER_SMILE)
-        print("Thetas by dots:", thetas)
+        thetas_tmp = thetas
+        thetas = np.repeat(thetas_tmp, NUMBER_OF_DOTS_PER_SMILE)
+        thetas_all = np.repeat(thetas_tmp, NUMBER_OF_DOTS_PER_SMILE_ALL)
+        print("Thetas by dots:", thetas_all)
 
         def clip_params(params: np.array) -> np.array:
             eps = 1e-5
@@ -330,6 +334,7 @@ class SSVICalc:
             strikes_all,
             Ts_all,
             implied_variances_all,
+            thetas_all,
         )
 
     # ================ Derivatives of implied vol by raw params eta, lambda_, alpha, beta, gamma ================
